@@ -28,7 +28,6 @@ public class ShopManager : MonoBehaviour
         reference = database.RootReference;
         dispatcher = UnityMainThreadDispatcher.Instance();
 
-        LoadUserData();
 
     }
 
@@ -94,17 +93,17 @@ public class ShopManager : MonoBehaviour
 
     public void OnClickBuyUnit2()
     {
-        BuyUnit("Unit2", 100);
+        BuyUnit("Unit2", 10);
     }
 
     public void OnClickBuyUnit3()
     {
-        BuyUnit("Unit3", 200);
+        BuyUnit("Unit3", 10);
     }
 
     public void OnClickBuyUnit4()
     {
-        BuyUnit("Unit4", 300);
+        BuyUnit("Unit4", 10);
     }
 
     void BuyItem(string itemName, int price)
