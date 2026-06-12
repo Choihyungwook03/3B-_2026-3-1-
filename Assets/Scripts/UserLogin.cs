@@ -1,8 +1,7 @@
-using Firebase.Database;
-using PimDeWitte.UnityMainThreadDispatcher;
 using UnityEngine;
-using UnityEngine.SceneManagement;
+using Firebase.Database;
 using UnityEngine.UI;
+using PimDeWitte.UnityMainThreadDispatcher;
 
 public class UserLogin : MonoBehaviour
 {
@@ -10,87 +9,63 @@ public class UserLogin : MonoBehaviour
     DatabaseReference reference;
     UnityMainThreadDispatcher dispatcher;
 
-    [Header("Firebase")]
-    [SerializeField] string databaseUrl = "https://myproject-76240-default-rtdb.asia-southeast1.firebasedatabase.app/";
-
-    [Header("UI")]
     [SerializeField] InputField NickNameInput;
-    [SerializeField] Text CheckText;
-
-    [Header("Scene")]
-    [SerializeField] string NextSceneName = "MainScene";
-    [SerializeField] bool LoadNextSceneAfterLogin = false;
-
+    [SerializeField] Text checkText;
+    // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-        database = FirebaseDatabase.GetInstance(databaseUrl);
+        database = FirebaseDatabase.GetInstance(
+            "https://shingugimalgosa-default-rtdb.asia-southeast1.firebasedatabase.app/"
+        );
+
         reference = database.RootReference;
         dispatcher = UnityMainThreadDispatcher.Instance();
     }
 
-    // 로그인 버튼에 연결
     public void OnClickLogin()
     {
-        string nickName = NickNameInput.text.Trim();
-
-        if (string.IsNullOrEmpty(nickName))
+        string nickname = NickNameInput.text.Trim();
+        if (string.IsNullOrEmpty(nickname))
         {
-            CheckText.text = "닉네임을 입력하세요.";
+            checkText.text = "닉네임을 입력해주세요.";
             return;
         }
-
-        Login(nickName);
-    }
-
-    void Login(string nickName)
-    {
-        reference
-            .Child("UserInfo")
-            .OrderByChild("NickName")
-            .EqualTo(nickName)
-            .GetValueAsync()
-            .ContinueWith(task =>
+        reference.Child("UserInfo").OrderByChild("NickName").EqualTo(nickname).GetValueAsync().ContinueWith(task =>
+        {
+            if (task.IsFaulted)
             {
-                if (task.IsFaulted)
+                dispatcher.Enqueue(() =>
                 {
-                    dispatcher.Enqueue(() =>
-                    {
-                        CheckText.text = "Firebase 읽기 오류";
-                    });
-                    return;
-                }
+                    checkText.text = "Firebase 읽기 오류";
+                });
+                return;
+            }
 
-                DataSnapshot snapshot = task.Result;
+            DataSnapshot snapshot = task.Result;
 
-                if (!snapshot.HasChildren)
+            if (!snapshot.HasChildren)
+            {
+                dispatcher.Enqueue(() =>
                 {
-                    dispatcher.Enqueue(() =>
-                    {
-                        CheckText.text = "존재하지 않는 닉네임입니다.";
-                    });
-                    return;
-                }
+                    checkText.text = "존재하지 않는 닉네임입니다.";
+                });
+                return;
+            }
 
-                foreach (DataSnapshot userSnapshot in snapshot.Children)
+            foreach (DataSnapshot userSnapShot in snapshot.Children)
+            {
+                string userKey = userSnapShot.Key;
+
+                dispatcher.Enqueue(() =>
                 {
-                    string userKey = userSnapshot.Key;
+                    PlayerPrefs.SetString("UserKey", userKey);
+                    PlayerPrefs.SetString("UserNickname", nickname);
+                    PlayerPrefs.Save();
 
-                    dispatcher.Enqueue(() =>
-                    {
-                        PlayerPrefs.SetString("UserKey", userKey);
-                        PlayerPrefs.SetString("UserNickName", nickName);
-                        PlayerPrefs.Save();
-
-                        CheckText.text = "로그인 성공";
-
-                        if (LoadNextSceneAfterLogin)
-                        {
-                            SceneManager.LoadScene(NextSceneName);
-                        }
-                    });
-
-                    break;
-                }
-            });
+                    checkText.text = "로그인 성공";
+                });
+                break;
+            }
+        });
     }
 }

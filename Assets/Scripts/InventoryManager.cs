@@ -1,9 +1,9 @@
-using Firebase.Database;
-using Newtonsoft.Json;
-using PimDeWitte.UnityMainThreadDispatcher;
-using System.Collections.Generic;
 using UnityEngine;
+using Firebase.Database;
 using UnityEngine.UI;
+using PimDeWitte.UnityMainThreadDispatcher;
+using Newtonsoft.Json;
+using System.Collections.Generic;
 
 public class InventoryManager : MonoBehaviour
 {
@@ -11,23 +11,30 @@ public class InventoryManager : MonoBehaviour
     DatabaseReference reference;
     UnityMainThreadDispatcher dispatcher;
 
-    [Header("Firebase")]
-    [SerializeField] string databaseUrl = "https://myproject-76240-default-rtdb.asia-southeast1.firebasedatabase.app/";
-
     [Header("UI")]
-    [SerializeField] Text PotionCountText;
-    [SerializeField] Text BombCountText;
-    [SerializeField] Text TicketCountText;
+    [SerializeField] Text SwordCountText;
+    [SerializeField] Text PoisonCountText;
+    [SerializeField] Text AxeCountText;
     [SerializeField] Text MessageText;
 
     string userKey;
-    Dictionary<string, int> inventory = new Dictionary<string, int>();
 
+    Dictionary<string, int> inventory = new Dictionary<string, int>();
+    // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-        database = FirebaseDatabase.GetInstance(databaseUrl);
+        database = FirebaseDatabase.GetInstance(
+            "https://shingugimalgosa-default-rtdb.asia-southeast1.firebasedatabase.app/"
+        );
+
         reference = database.RootReference;
         dispatcher = UnityMainThreadDispatcher.Instance();
+
+    }
+
+    public void LoadInventory()
+    {
+        inventory.Clear();
 
         userKey = PlayerPrefs.GetString("UserKey");
 
@@ -37,27 +44,18 @@ public class InventoryManager : MonoBehaviour
             return;
         }
 
-        LoadInventory();
-    }
-
-    void LoadInventory()
-    {
-        reference
-            .Child("UserInfo")
-            .Child(userKey)
-            .Child("Inventory")
-            .GetValueAsync()
-            .ContinueWith(task =>
+        reference.Child("UserInfo").Child(userKey).Child("Inventory").GetValueAsync().ContinueWith(task =>
+        {
+            if (task.IsFaulted)
             {
-                if (task.IsFaulted)
+                dispatcher.Enqueue(() =>
                 {
-                    dispatcher.Enqueue(() =>
-                    {
-                        MessageText.text = "인벤토리 불러오기 실패";
-                    });
-                    return;
-                }
-
+                    MessageText.text = "인벤토리 불러오기 실패";
+                });
+                return;
+            }
+            if (task.IsCompleted)
+            {
                 DataSnapshot snapshot = task.Result;
 
                 if (snapshot.Value == null)
@@ -70,6 +68,7 @@ public class InventoryManager : MonoBehaviour
                 }
 
                 string inventoryJson = snapshot.Value.ToString();
+
                 inventory = JsonConvert.DeserializeObject<Dictionary<string, int>>(inventoryJson);
 
                 dispatcher.Enqueue(() =>
@@ -77,14 +76,9 @@ public class InventoryManager : MonoBehaviour
                     RefreshUI();
                     MessageText.text = "인벤토리 불러오기 완료";
                 });
-            });
-    }
+            }
 
-    void RefreshUI()
-    {
-        PotionCountText.text = "Potion : " + GetItemCount("Potion");
-        BombCountText.text = "Bomb : " + GetItemCount("Bomb");
-        TicketCountText.text = "Ticket : " + GetItemCount("Ticket");
+        });
     }
 
     int GetItemCount(string itemName)
@@ -93,62 +87,70 @@ public class InventoryManager : MonoBehaviour
         {
             return inventory[itemName];
         }
-
         return 0;
     }
 
-    public void OnClickUsePotion()
+    void RefreshUI()
     {
-        UseItem("Potion");
-    }
-
-    public void OnClickUseBomb()
-    {
-        UseItem("Bomb");
-    }
-
-    public void OnClickUseTicket()
-    {
-        UseItem("Ticket");
+        SwordCountText.text = "Sword : " + GetItemCount("Sword");
+        PoisonCountText.text = "Poison : " + GetItemCount("Poison");
+        AxeCountText.text = "Axe : " + GetItemCount("Axe");
     }
 
     void UseItem(string itemName)
     {
-        if (!inventory.ContainsKey(itemName) || inventory[itemName] <= 0)
+        if (!inventory.ContainsKey(itemName))
         {
-            MessageText.text = itemName + " 개수가 부족합니다.";
+            MessageText.text = itemName + "아이템이 없습니다.";
+            return;
+        }
+
+        if (inventory[itemName] <= 0)
+        {
+            MessageText.text = itemName + "개수가 부족합니다.";
             return;
         }
 
         inventory[itemName]--;
+
         SaveInventory(itemName);
     }
 
-    void SaveInventory(string usedItemName)
+    public void OnClickUseSword()
+    {
+        UseItem("Sword");
+    }
+    public void OnClickUsePoison()
+    {
+        UseItem("Poison");
+    }
+    public void OnClickUseAxe()
+    {
+        UseItem("Axe");
+    }
+
+    void SaveInventory(string userItemname)
     {
         string inventoryJson = JsonConvert.SerializeObject(inventory);
 
-        reference
-            .Child("UserInfo")
-            .Child(userKey)
-            .Child("Inventory")
-            .SetValueAsync(inventoryJson)
-            .ContinueWith(task =>
+        reference.Child("UserInfo").Child(userKey).Child("Inventory").SetValueAsync(inventoryJson).ContinueWith(task =>
+        {
+            if (task.IsFaulted)
             {
-                if (task.IsFaulted)
+                dispatcher.Enqueue(() =>
                 {
-                    dispatcher.Enqueue(() =>
-                    {
-                        MessageText.text = "인벤토리 저장 실패";
-                    });
-                    return;
-                }
-
+                    MessageText.text = "인벤토리 저장 실패";
+                });
+                return;
+            }
+            if (task.IsCompleted)
+            {
                 dispatcher.Enqueue(() =>
                 {
                     RefreshUI();
-                    MessageText.text = usedItemName + " 사용 완료";
+                    MessageText.text = userItemname + " 사용했다!";
                 });
-            });
+            }
+        });
     }
 }

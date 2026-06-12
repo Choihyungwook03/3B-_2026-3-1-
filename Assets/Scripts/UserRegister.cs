@@ -1,8 +1,7 @@
-using Firebase.Database;
-using PimDeWitte.UnityMainThreadDispatcher;
 using UnityEngine;
-using UnityEngine.SceneManagement;
+using Firebase.Database;
 using UnityEngine.UI;
+using PimDeWitte.UnityMainThreadDispatcher;
 
 public class UserRegister : MonoBehaviour
 {
@@ -10,86 +9,71 @@ public class UserRegister : MonoBehaviour
     DatabaseReference reference;
     UnityMainThreadDispatcher dispatcher;
 
-    [Header("Firebase")]
-    [SerializeField] string databaseUrl = "https://shingugimalgosa-default-rtdb.asia-southeast1.firebasedatabase.app/";
-
-    [Header("UI")]
     [SerializeField] InputField NickNameInput;
-    [SerializeField] Text CheckText;
-
-    [Header("Scene")]
-    [SerializeField] string NextSceneName = "MainScene";
-    [SerializeField] bool LoadNextSceneAfterRegister = false;
-
+    [SerializeField] Text checkText;
+    // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-        database = FirebaseDatabase.GetInstance(databaseUrl);
+        database = FirebaseDatabase.GetInstance(
+            "https://shingugimalgosa-default-rtdb.asia-southeast1.firebasedatabase.app/"
+        );
+
         reference = database.RootReference;
         dispatcher = UnityMainThreadDispatcher.Instance();
     }
 
-    // 회원가입 버튼에 연결
     public void OnClickRegister()
     {
-        string nickName = NickNameInput.text.Trim();
-
-        if (string.IsNullOrEmpty(nickName))
+        string nickname = NickNameInput.text.Trim();
+        if (string.IsNullOrEmpty(nickname))
         {
-            CheckText.text = "닉네임을 입력하세요.";
+            checkText.text = "닉네임을 입력해주세요.";
             return;
         }
-
-        CheckDuplicateNickName(nickName);
-    }
-
-    void CheckDuplicateNickName(string nickName)
-    {
-        reference
-            .Child("UserInfo")
-            .OrderByChild("NickName")
-            .EqualTo(nickName)
-            .GetValueAsync()
-            .ContinueWith(task =>
+        reference.Child("UserInfo").OrderByChild("NickName").EqualTo(nickname).GetValueAsync().ContinueWith(task =>
+        {
+            if (task.IsFaulted)
             {
-                if (task.IsFaulted)
+                dispatcher.Enqueue(() =>
                 {
-                    dispatcher.Enqueue(() =>
-                    {
-                        CheckText.text = "Firebase 읽기 오류";
-                    });
-                    return;
-                }
+                    checkText.text = "Firebase 읽기 오류";
+                });
+                return;
+            }
 
-                DataSnapshot snapshot = task.Result;
+            DataSnapshot snapshot = task.Result;
 
-                if (snapshot.HasChildren)
+            if (snapshot.HasChildren)
+            {
+                dispatcher.Enqueue(() =>
                 {
-                    dispatcher.Enqueue(() =>
-                    {
-                        CheckText.text = "이미 사용 중인 닉네임입니다.";
-                    });
-                    return;
-                }
-
-                CreateUser(nickName);
-            });
+                    checkText.text = "이미 사용 중인 닉네임입니다.";
+                });
+                return;
+            }
+            CreateUser(nickname);
+        });
     }
 
-    void CreateUser(string nickName)
+    // Update is called once per frame
+    void CreateUser(string nickname)
     {
         DatabaseReference newUserRef = reference.Child("UserInfo").Push();
+
         string userKey = newUserRef.Key;
 
-        UserData userData = new UserData(nickName);
+        UserData userData = new UserData(nickname);
         string json = JsonUtility.ToJson(userData);
 
         newUserRef.SetRawJsonValueAsync(json).ContinueWith(task =>
         {
             if (task.IsFaulted)
             {
+                Debug.LogError(task.Exception);
+
                 dispatcher.Enqueue(() =>
                 {
-                    CheckText.text = "회원가입 실패";
+                    checkText.text = "회원가입 실패";
                 });
                 return;
             }
@@ -97,16 +81,12 @@ public class UserRegister : MonoBehaviour
             dispatcher.Enqueue(() =>
             {
                 PlayerPrefs.SetString("UserKey", userKey);
-                PlayerPrefs.SetString("UserNickName", nickName);
+                PlayerPrefs.SetString("UserNickname", nickname);
                 PlayerPrefs.Save();
 
-                CheckText.text = "회원가입 완료";
-
-                if (LoadNextSceneAfterRegister)
-                {
-                    SceneManager.LoadScene(NextSceneName);
-                }
+                checkText.text = "회원가입 성공";
             });
         });
+
     }
 }
