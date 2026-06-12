@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "165387677101",
+    "project_id": "shingugimalgosa",
+    "storage_bucket": "shingugimalgosa.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:165387677101:android:1c5f93c8e41d4f7c328524",
+        "android_client_info": {
+          "package_name": "com.DefaultCompany.Unity_3B_202631_"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBfdC_SrowBwTCjOo1ZDO7fVpodnPyftZI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
